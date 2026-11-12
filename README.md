@@ -1,33 +1,89 @@
-# Dashboard Forge — Spec-Driven Project
+# Dashboard Forge ⚡
 
-An AI-assisted system that turns client dashboard requirements into verified, production-ready dashboards.
-**Flow:** Client requirements → structured requirements → task plan → data discovery → metric definitions → queries → dashboard build → automated verification → human approval → delivery.
+An AI-assisted, spec-driven system that transforms unstructured client dashboard briefs into verified, production-ready BI dashboards.
 
-## How to use this folder (spec-driven rules)
-1. **Specs are the source of truth.** Code is written *from* specs, never the other way round.
-2. Read in order: `constitution.md` → `specs/00` … `specs/11` → `plan/`.
-3. Every implementation task in `plan/tasks.md` references spec IDs (FR-xx, NFR-xx, AC-xx). A task is "done" only when its acceptance criteria pass.
-4. If implementation reveals a spec gap, **update the spec first** (add a line in `plan/changelog.md`), then code.
-5. Nothing is implemented until the owner says "start implementation" (currently: planning only).
+**End-to-End Flow:**  
+Client Brief $\rightarrow$ Structured Requirements $\rightarrow$ Ambiguity Resolution $\rightarrow$ Human Gate 1 $\rightarrow$ Data Discovery & Profiling $\rightarrow$ Semantic Layer Metric Definitions $\rightarrow$ Human Gate 2 $\rightarrow$ Dialect-Aware SQL $\rightarrow$ Verification & Human Gate 3.
 
-## Folder map
-| Path | Purpose |
-|---|---|
-| `constitution.md` | Non-negotiable principles (accuracy, traceability, human gates) |
-| `specs/00-overview.md` | Vision, problem, goals, non-goals, personas, success metrics |
-| `specs/01-requirements.md` | Functional + non-functional requirements with acceptance criteria |
-| `specs/02-architecture.md` | Components, data flow, diagrams |
-| `specs/03-tech-stack.md` | Chosen technologies and why, alternatives |
-| `specs/04-agents-and-workflow.md` | AI agent pipeline, state machine, prompts contract |
-| `specs/05-data-models.md` | Schemas for requirements, tasks, metrics, dashboard spec, tests |
-| `specs/06-validation-and-accuracy.md` | How we prove the dashboard is correct |
-| `specs/07-api-and-interfaces.md` | REST API, UI screens, CLI |
-| `specs/08-security-and-governance.md` | Access, PII, audit, LLM safety |
-| `specs/09-observability-and-evals.md` | Logging, tracing, LLM evals, KPIs |
-| `specs/10-template-library.md` | Reuse of repeated requirements (the "stop repeating work" engine) |
-| `specs/11-repo-structure.md` | Code layout, conventions, CI/CD |
-| `plan/roadmap.md` | Phases and milestones |
-| `plan/tasks.md` | Ordered task breakdown with dependencies |
-| `plan/risks.md` | Risks and mitigations |
-| `plan/changelog.md` | Spec change log |
-| `examples/` | Sample client brief and sample generated dashboard spec |
+---
+
+## 🏛️ Constitution Principles (Non-Negotiable)
+
+1. **LLMs plan; databases compute.** Numbers shown on a dashboard never originate from an LLM; all values come from executed SQL against the warehouse.
+2. **Every requirement is traceable.** Requirement $\rightarrow$ task $\rightarrow$ artifact (metric/query/chart) $\rightarrow$ test $\rightarrow$ result.
+3. **Verify independently.** Two independent calculation paths (SQL vs. reference engine).
+4. **Ambiguity is asked, not guessed.** Detects business definition, time boundary, or currency ambiguities and presents clarifying questions.
+5. **3 Human Gates:** Requirement approval (Gate 1), Metric definition approval (Gate 2), Final sign-off (Gate 3).
+6. **Zero-Cost / Local-First Stack ($0 Budget):** Designed to run 100% locally on Python, DuckDB, and Streamlit, with pluggable support for Google Gemini Free Tier / local Ollama models.
+
+---
+
+## 🚀 Quickstart & Interactive Web UI
+
+### 1. Prerequisites & Environment
+Ensure you have Python 3.11+ installed. Activate the project virtual environment:
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+### 2. Launch the Streamlit Web UI
+Run the following command to start the unified web application:
+
+```powershell
+$env:PYTHONPATH="src"
+.\.venv\Scripts\streamlit.exe run ui/app.py
+```
+Open **`http://localhost:8501`** in your browser.
+
+See detailed instructions in [UI_INSTRUCTIONS.md](UI_INSTRUCTIONS.md).
+
+---
+
+## 📦 Project Implementation Progress
+
+| Phase | Description | Status | Key Deliverables |
+|---|---|---|---|
+| **Phase 0** | **Foundations & Architecture** | ✅ Completed | Repository structure, Core Pydantic Models (`models.py`), $0 LLM Provider abstraction (`provider.py`, `free_providers.py`), Golden DuckDB dataset generator (`golden_ecommerce.duckdb`). |
+| **Phase 1** | **Requirements Engine & Gate 1** | ✅ Completed | Document intake parser (`document_parser.py`), Requirement Analyst Agent (`requirement_analyst.py`), Clarifier Agent (`clarifier.py`), and Human Gate 1 approval logic. |
+| **Phase 2** | **Data Understanding & EDA** | ✅ Completed | Read-only DuckDB connector (`duckdb_connector.py`), Schema Profiler (`profiler.py`), Key/Grain/Join inferrer (`inferrer.py`), PII Masker (`pii_masker.py`), Semantic Mapper Agent (`semantic_mapper.py`), and deep EDA / Null-Handling diagnostics (`eda_analyzer.py`). |
+| **Phase 3** | **Metrics & SQL Engine** | ✅ Completed | Semantic Layer YAML compiler (`layer.py`), Metric Designer Agent with self-critique (`metric_designer.py`), Dialect-aware SQL Generator (`sql_generator.py`), and SQLGlot AST static safety linter with dry-runs (`sql_validator.py`). |
+| **Interactive UI** | **Web Application** | ✅ Completed | Streamlit multi-screen app (`ui/app.py`) uniting intake, Gate 1, data profiling, Gate 2, and live SQL execution. |
+| **Phase 4** | **Dashboard Build** | ⏳ Next | Tool-agnostic `DashboardSpec`, Chart Recommender, and Dashboard Designer Agent. |
+| **Phase 5** | **Test & Evidence** | ⏳ Pending | Reconciliation runner (SQL vs. DuckDB reference), Playwright rendered tests, and Evidence Report. |
+| **Phase 6** | **LangGraph Orchestrator** | ⏳ Pending | End-to-end task DAG state machine with checkpoint interrupts at Gates 1, 2, and 3. |
+
+---
+
+## 🧪 Testing
+
+To run the automated unit and end-to-end integration test suite:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -v
+```
+
+All 16 unit and integration tests are currently passing 100% green.
+
+---
+
+## 📂 Repository Map
+
+```text
+dashboard-forge/
+├── specs/                 # Source-of-truth specifications (00 to 11)
+├── plan/                  # Roadmap, tasks, risks, and changelog
+├── examples/              # Sample client briefs and dashboard specs
+├── evals/                 # Synthetic golden datasets & benchmark briefs
+├── src/dforge/
+│   ├── core/              # Pydantic schemas (Requirement, Metric, Task, Spec)
+│   ├── llm/               # Zero-cost LLM provider abstraction (Gemini, Ollama, Mock)
+│   ├── agents/            # Requirement Analyst, Clarifier, Semantic Mapper, Metric Designer, SQL Generator
+│   ├── tools/             # Connectors (DuckDB), Profiler, Inferrer, PII Masker, EDA Analyzer, SQL Validator
+│   └── semantic/          # Semantic Layer YAML compiler
+├── ui/                    # Streamlit web application
+├── tests/                 # Unit and end-to-end integration tests
+├── scripts/               # Interactive verification scripts (Phases 0, 1, 2, 3)
+└── UI_INSTRUCTIONS.md     # UI launch and user guide
+```
