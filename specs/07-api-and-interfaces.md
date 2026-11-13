@@ -40,11 +40,21 @@ Auth: OIDC/JWT; RBAC roles `admin, analyst, reviewer, client_viewer`. Streaming:
 ## BI Adapter Interface
 ```python
 class BIAdapter(Protocol):
-    def validate(spec: DashboardSpec) -> list[Issue]
-    def publish(spec: DashboardSpec, datasets: list[Dataset]) -> PublishedRef
-    def update(ref, spec) -> PublishedRef
+    def validate(spec: DashboardSpec, datasets: Sequence[DatasetBinding]) -> list[Issue]
+    def publish(spec: DashboardSpec, datasets: Sequence[DatasetBinding]) -> PublishedRef
+    def update(ref, spec, datasets: Sequence[DatasetBinding]) -> PublishedRef
     def fetch_widget_data(ref, widget_id, filters) -> DataFrame
-    def screenshot(ref, page) -> bytes
+    def screenshot(ref, page_id) -> bytes
 ```
+
+`DatasetBinding` identifies the metric, its approved scalar expression, Superset datasource (existing ID or database/schema/table), and available columns used to validate filter targets. The adapter returns errors for missing bindings or unavailable Superset capabilities; it does not invent datasets or metric expressions.
+
+### Phase 4 preview and publication
+- `BIAdapter` is the Apache Superset publication boundary for MVP (FR-52); it consumes only validated `DashboardSpec` instances and approved dataset/metric references.
+- The Streamlit UI is a separate local preview renderer for Screen 7. It consumes the same spec and query-backed widget data and must not invent metric values.
+- Preview rendering must handle supported widget types and global filters, and surface unsupported types, query failures, or invalid references to the user.
+- A Superset `PublishedRef` and preview output are separate artifacts; successful preview does not imply successful publication.
+- Superset thumbnail retrieval is dashboard-level and reports when thumbnail generation is unavailable. Per-tab rendered screenshots are left to the Phase 5 browser-test service; a preview is never reported as a published dashboard.
+
 ## Warehouse Connector Interface
 `connect(readonly) · list_tables · profile(table) · dry_run(sql) · execute(sql, limit, timeout) · dialect`

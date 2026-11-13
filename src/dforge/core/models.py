@@ -1,10 +1,11 @@
 """Core Pydantic models for Dashboard Forge as defined in specs/05-data-models.md."""
 
-from datetime import datetime
+import re
+from datetime import date, datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Literal, Optional
 
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # --- Requirement Models ---
 
@@ -89,12 +90,21 @@ class MetricDefinition(BaseModel):
     formula: str = Field(description="SQL aggregation expression e.g. sum(amount - coalesce(refund, 0))")
     dataset: str = Field(description="Underlying table or view")
     grain: str = Field(description="Grain e.g. order_id, day, customer_id")
+    time_dimension: Optional[str] = None
     dimensions: List[str] = Field(default_factory=list)
     filters: List[str] = Field(default_factory=list)
     unit: str = Field(default="count", description="currency, count, percent, seconds...")
+    format: Optional[str] = None
     requirement_ids: List[str] = Field(default_factory=list)
     status: Literal["draft", "approved", "rejected"] = "draft"
     version: int = 1
+
+    @field_validator("format")
+    @classmethod
+    def validate_display_format(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not re.fullmatch(r"[#,0]+(?:\.[0#]+)?", value):
+            raise ValueError("Metric format may contain only numeric grouping and decimal placeholders.")
+        return value
 
 
 # --- Dashboard Spec Models ---
@@ -110,40 +120,115 @@ class WidgetType(str, Enum):
 
 
 class WidgetSpec(BaseModel):
-    id: str
-    title: str
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
     type: WidgetType
-    metric: str
+    metric: str = Field(min_length=1)
     dimensions: List[str] = Field(default_factory=list)
     filters: List[str] = Field(default_factory=list)
+    time_dimension: Optional[str] = None
     time_grain: Optional[str] = None
     width: int = Field(default=6, ge=1, le=12, description="12-column grid system")
     requirement_ids: List[str] = Field(default_factory=list)
 
+    @field_validator("id", "title", "metric")
+    @classmethod
+    def values_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Value must not be blank")
+        return value.strip()
+
 
 class FilterSpec(BaseModel):
-    id: str
-    label: str
-    column: str
+    id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    column: str = Field(min_length=1)
     type: Literal["select", "date_range", "multi_select", "search"]
     default_value: Optional[Any] = None
+    requirement_ids: List[str] = Field(default_factory=list)
+
+    @field_validator("id", "label", "column")
+    @classmethod
+    def values_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Value must not be blank")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def validate_default_value(self) -> "FilterSpec":
+        if self.default_value is None:
+            return self
+        if self.type == "date_range":
+            default = self.default_value
+            if isinstance(default, str) and re.fullmatch(
+                r"last_\d+_(days|weeks|months)", default
+            ):
+                return self
+            if isinstance(default, (list, tuple)) and len(default) == 2:
+                try:
+                    date.fromisoformat(default[0])
+                    date.fromisoformat(default[1])
+                    return self
+                except (TypeError, ValueError):
+                    pass
+            raise ValueError(
+                "Date-range defaults must be a supported relative range or two ISO dates."
+            )
+        if self.type == "multi_select" and not isinstance(self.default_value, list):
+            raise ValueError("Multi-select defaults must be a list.")
+        if self.type == "search" and not isinstance(self.default_value, str):
+            raise ValueError("Search defaults must be strings.")
+        return self
 
 
 class DashboardPage(BaseModel):
-    id: str
-    title: str
-    widgets: List[WidgetSpec] = Field(default_factory=list)
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    widgets: List[WidgetSpec] = Field(min_length=1)
+
+    @field_validator("id", "title")
+    @classmethod
+    def values_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Value must not be blank")
+        return value.strip()
 
 
 class DashboardSpec(BaseModel):
-    id: str
-    title: str
+    id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
     description: str
-    project_id: str
+    project_id: str = Field(min_length=1)
     global_filters: List[FilterSpec] = Field(default_factory=list)
-    pages: List[DashboardPage] = Field(default_factory=list)
+    pages: List[DashboardPage] = Field(min_length=1)
     theme: Dict[str, Any] = Field(default_factory=dict)
-    version: int = 1
+    version: int = Field(default=1, ge=1)
+
+    @field_validator("id", "title", "project_id")
+    @classmethod
+    def values_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Value must not be blank")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def validate_unique_ids(self) -> "DashboardSpec":
+        def ensure_unique(values: List[str], label: str) -> None:
+            if len(values) != len(set(values)):
+                raise ValueError(f"{label} IDs must be unique")
+
+        ensure_unique([page.id for page in self.pages], "Page")
+        ensure_unique([item.id for item in self.global_filters], "Filter")
+        for page in self.pages:
+            ensure_unique([widget.id for widget in page.widgets], f"Widget on page '{page.id}'")
+        for color_key in ("primary_color", "secondary_color", "background_color"):
+            color = self.theme.get(color_key)
+            if color is not None and (
+                not isinstance(color, str)
+                or not re.fullmatch(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})", color)
+            ):
+                raise ValueError(f"Dashboard theme '{color_key}' must be a 3- or 6-digit hex color.")
+        return self
 
 
 # --- Test & Verification Models ---

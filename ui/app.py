@@ -2,28 +2,31 @@
 
 import asyncio
 from pathlib import Path
+
 import streamlit as st
+import yaml
+
+from dforge.agents.dashboard_designer import DashboardDesigner, DimensionBinding
+from dforge.agents.metric_designer import MetricDesigner
+from dforge.agents.requirements_service import RequirementsService
+from dforge.agents.semantic_mapper import SemanticMappingPlan
+from dforge.agents.sql_generator import SQLGenerator
+from dforge.core.models import (
+    FilterSpec,
+    RequirementStatus,
+    RequirementType,
+)
+from dforge.llm.provider import MockLLMProvider
+from dforge.semantic.layer import SemanticLayer
+from dforge.tools.bi.streamlit_renderer import StreamlitDashboardRenderer
+from dforge.tools.connectors.duckdb_connector import DuckDBConnector
 
 # Core and Phase services
 from dforge.tools.parsers.document_parser import DocumentParser
-from dforge.agents.requirements_service import RequirementsService
-from dforge.core.models import (
-    Requirement,
-    RequirementPriority,
-    RequirementStatus,
-    RequirementType,
-    MetricDefinition,
-)
-from dforge.llm.provider import MockLLMProvider
-from dforge.tools.connectors.duckdb_connector import DuckDBConnector
-from dforge.tools.profiling.profiler import DataProfiler
-from dforge.tools.profiling.inferrer import RelationshipInferrer
 from dforge.tools.profiling.eda_analyzer import QualityAndEDAAnalyzer
-from dforge.agents.semantic_mapper import SemanticMapper, SemanticMappingPlan
-from dforge.agents.metric_designer import MetricDesigner
-from dforge.agents.sql_generator import SQLGenerator
+from dforge.tools.profiling.inferrer import RelationshipInferrer
+from dforge.tools.profiling.profiler import DataProfiler
 from dforge.tools.sql.sql_validator import SQLValidator
-from dforge.semantic.layer import SemanticLayer
 
 st.set_page_config(
     page_title="Dashboard Forge",
@@ -45,6 +48,8 @@ if "gate2_approved" not in st.session_state:
     st.session_state.gate2_approved = False
 if "metrics" not in st.session_state:
     st.session_state.metrics = []
+if "dashboard_spec" not in st.session_state:
+    st.session_state.dashboard_spec = None
 
 DB_PATH = Path("evals/datasets/golden_ecommerce.duckdb")
 if not DB_PATH.exists():
@@ -64,6 +69,7 @@ selected_screen = st.sidebar.radio(
         "3. Data Profiling & EDA (Screen 5)",
         "4. Metric Dictionary & Gate 2 (Screen 6)",
         "5. Live SQL & Warehouse Query",
+        "6. Dashboard Preview (Screen 7)",
     ],
 )
 
@@ -167,6 +173,9 @@ if selected_screen == "1. Intake & Brief (Screen 1 & 2)":
                         service.process_brief(st.session_state.project_id, st.session_state.brief_text)
                     )
                     st.session_state.gate1_approved = False
+                    st.session_state.gate2_approved = False
+                    st.session_state.metrics = []
+                    st.session_state.dashboard_spec = None
                     st.success("Successfully decomposed into atomic requirements! Proceed to the Requirements Board.")
 
     with col2:
@@ -271,7 +280,9 @@ elif selected_screen == "4. Metric Dictionary & Gate 2 (Screen 6)":
     st.header("📐 Metric Dictionary & Gate 2 Approval (Screen 6)")
     st.write("Declarative YAML Semantic Layer and formula review before finalizing SQL.")
 
-    if not st.session_state.metrics:
+    if not st.session_state.gate1_approved:
+        st.warning("Approve Gate 1 before generating metric definitions.")
+    elif not st.session_state.metrics:
         if st.button("Generate Metric Definitions from Approved Requirements ⚙️", type="primary"):
             mock_metric_output = {
                 "MetricDesignerOutput": {
@@ -283,8 +294,9 @@ elif selected_screen == "4. Metric Dictionary & Gate 2 (Screen 6)":
                             "formula": "ROUND(SUM(line_total - COALESCE(discount_amount, 0)), 2)",
                             "dataset": "order_items",
                             "grain": "order_id",
+                            "dimensions": ["products.category"],
                             "unit": "USD",
-                            "requirement_ids": ["REQ-001"],
+                            "requirement_ids": ["REQ-001", "REQ-003"],
                             "status": "draft",
                         },
                         {
@@ -333,7 +345,10 @@ elif selected_screen == "4. Metric Dictionary & Gate 2 (Screen 6)":
             st.success("✅ Gate 2 Approved! Metric formulas and semantic contracts are locked.")
         else:
             if st.button("Approve Gate 2 (Metrics Sign-off) ✍️", type="primary"):
+                for metric in st.session_state.metrics:
+                    metric.status = "approved"
                 st.session_state.gate2_approved = True
+                st.session_state.dashboard_spec = None
                 st.success("✅ Gate 2 Approved! Ready for Phase 4 Dashboard Build.")
                 st.rerun()
 
@@ -376,3 +391,125 @@ elif selected_screen == "5. Live SQL & Warehouse Query":
         st.subheader("Live DuckDB Execution Result")
         cols, rows = connector.execute_query(gen_query.sql)
         st.dataframe([dict(zip(cols, r)) for r in rows], use_container_width=True)
+
+# --- SCREEN 7: DASHBOARD PREVIEW ---
+elif selected_screen == "6. Dashboard Preview (Screen 7)":
+    st.header("📊 Dashboard Preview (Screen 7)")
+    st.write(
+        "Design a validated, traceable DashboardSpec from approved metrics, then preview "
+        "query-backed widgets in Streamlit."
+    )
+    if not st.session_state.gate1_approved or not st.session_state.gate2_approved:
+        st.warning("Approve Gate 1 and Gate 2 before creating a dashboard.")
+    elif not st.session_state.metrics:
+        st.warning("Generate and approve metric definitions before creating a dashboard.")
+    else:
+        profiles = DataProfiler(connector).profile_all()
+        schema_graph = RelationshipInferrer.infer_schema_graph(profiles)
+        field_options = [
+            f"{profile.table_name}.{column.name}"
+            for profile in profiles
+            for column in profile.columns
+        ]
+        approved_requirements = [
+            requirement
+            for requirement in st.session_state.requirements
+            if requirement.status == RequirementStatus.APPROVED
+        ]
+        dimension_requirements = [
+            requirement
+            for requirement in approved_requirements
+            if requirement.type == RequirementType.DIMENSION
+        ]
+        filter_requirements = [
+            requirement
+            for requirement in approved_requirements
+            if requirement.type == RequirementType.FILTER
+        ]
+        dimension_options = [
+            (metric.name, dimension)
+            for metric in st.session_state.metrics
+            for dimension in metric.dimensions
+        ]
+        dimension_mappings = {}
+        if dimension_requirements:
+            st.subheader("Confirm dashboard dimension mappings")
+            for requirement in dimension_requirements:
+                options = ["-- select approved metric dimension --", *dimension_options]
+                selection = st.selectbox(
+                    f"{requirement.text} ({requirement.id})",
+                    options,
+                    format_func=lambda value: (
+                        value
+                        if isinstance(value, str)
+                        else f"{value[0]} — {value[1]}"
+                    ),
+                    key=f"dashboard_dimension_mapping_{requirement.id}",
+                )
+                if isinstance(selection, tuple):
+                    dimension_mappings[requirement.id] = DimensionBinding(
+                        metric_name=selection[0],
+                        dimension=selection[1],
+                    )
+
+        filter_mappings = {}
+        if filter_requirements:
+            st.subheader("Confirm dashboard filter fields")
+            for requirement in filter_requirements:
+                options = ["-- select field --", *field_options]
+                selected_field = st.selectbox(
+                    f"{requirement.text} ({requirement.id})",
+                    options,
+                    key=f"dashboard_filter_mapping_{requirement.id}",
+                )
+                if selected_field != "-- select field --":
+                    filter_mappings[requirement.id] = FilterSpec(
+                        id=requirement.id.lower().replace("_", "-"),
+                        label=requirement.text,
+                        column=selected_field,
+                        type="multi_select",
+                        requirement_ids=[requirement.id],
+                    )
+
+        if st.button("Generate Dashboard Preview", type="primary"):
+            validated_queries = {}
+            generator = SQLGenerator(schema_graph=schema_graph, dialect="duckdb")
+            query_validator = SQLValidator(connector=connector)
+            for metric in st.session_state.metrics:
+                generated = generator.generate_metric_query(metric=metric, dimensions=[])
+                validated_queries[metric.name] = query_validator.validate_sql(generated.sql)
+            try:
+                st.session_state.dashboard_spec = DashboardDesigner().design_dashboard(
+                    project_id=st.session_state.project_id,
+                    title="RetailCo Dashboard",
+                    requirements=approved_requirements,
+                    metrics=st.session_state.metrics,
+                    schema_graph=schema_graph,
+                    profiles=profiles,
+                    validated_queries=validated_queries,
+                    dimension_mappings=dimension_mappings,
+                    filter_mappings=filter_mappings,
+                )
+            except ValueError as exc:
+                st.error(f"Dashboard design blocked: {exc}")
+
+        if st.session_state.dashboard_spec is not None:
+            dashboard_spec = st.session_state.dashboard_spec
+            with st.expander("Validated DashboardSpec", expanded=False):
+                st.code(
+                    yaml.safe_dump(
+                        dashboard_spec.model_dump(mode="json"),
+                        sort_keys=False,
+                        allow_unicode=True,
+                    ),
+                    language="yaml",
+                )
+            StreamlitDashboardRenderer(
+                connector=connector,
+                schema_graph=schema_graph,
+                profiles=profiles,
+            ).render(
+                dashboard_spec,
+                metrics=st.session_state.metrics,
+                requirements=approved_requirements,
+            )

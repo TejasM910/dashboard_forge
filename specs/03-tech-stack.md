@@ -16,7 +16,7 @@ Configured for a **Zero-Cost, Local-First MVP** ($0 budget), fully runnable on a
 | Query abstraction | **SQLGlot (+ ibis)** | Dialect transpile, parse, lint, AST safety checks | raw SQL strings |
 | Reference compute | **DuckDB + pandas/Polars** | Independent second calculation path for verification | Spark for large data |
 | Data validation | **Pandera / Great Expectations** | Integrity tests | dbt tests |
-| BI target (MVP) | **Streamlit Native Visualizations + Local Apache Superset** (Docker) | Interactive, open-source, scriptable, $0 | Metabase, Looker Studio |
+| BI target (MVP) | **Apache Superset** for dashboard publication; **Streamlit native visualizations** for the local preview in the existing app | Superset is the FR-52 publication target; Streamlit provides a zero-cost review surface without replacing the BI adapter | Metabase, Looker Studio |
 | Rendered tests | **Playwright** (headless) | Screenshots + DOM assertions | Selenium |
 | Frontend | **Streamlit** (MVP) | Fast iteration, interactive UI for gates, zero hosting costs | Next.js/React |
 | File parsing | `pypdf`, `python-docx`, `openpyxl`, `unstructured` | Briefs in any format | — |
@@ -33,3 +33,8 @@ Configured for a **Zero-Cost, Local-First MVP** ($0 budget), fully runnable on a
 - Offline / 100% Air-Gapped Option: **Ollama** (e.g., `qwen2.5-coder:7b` or `llama3.1:8b`) for local development without internet or API keys.
 - Temperature: 0–0.2; JSON-schema outputs via Pydantic; prompt + model version stored with each artifact.
 - Token budget tracking per run to maintain awareness of usage limits.
+
+### Phase 4 BI boundary
+- The Streamlit app is the Dashboard Forge UI and may render a local preview from a `DashboardSpec`.
+- Apache Superset remains the MVP BI publication target. A local Streamlit preview does not satisfy the Superset adapter or publication requirement.
+- Both paths consume the same validated, tool-agnostic `DashboardSpec`; metric values must come from executed queries, never LLM output.

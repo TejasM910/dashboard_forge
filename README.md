@@ -50,8 +50,8 @@ See detailed instructions in [UI_INSTRUCTIONS.md](UI_INSTRUCTIONS.md).
 | **Phase 2** | **Data Understanding & EDA** | ✅ Completed | Read-only DuckDB connector (`duckdb_connector.py`), Schema Profiler (`profiler.py`), Key/Grain/Join inferrer (`inferrer.py`), PII Masker (`pii_masker.py`), Semantic Mapper Agent (`semantic_mapper.py`), and deep EDA / Null-Handling diagnostics (`eda_analyzer.py`). |
 | **Phase 3** | **Metrics & SQL Engine** | ✅ Completed | Semantic Layer YAML compiler (`layer.py`), Metric Designer Agent with self-critique (`metric_designer.py`), Dialect-aware SQL Generator (`sql_generator.py`), and SQLGlot AST static safety linter with dry-runs (`sql_validator.py`). |
 | **Interactive UI** | **Web Application** | ✅ Completed | Streamlit multi-screen app (`ui/app.py`) uniting intake, Gate 1, data profiling, Gate 2, and live SQL execution. |
-| **Phase 4** | **Dashboard Build** | ⏳ Next | Tool-agnostic `DashboardSpec`, Chart Recommender, and Dashboard Designer Agent. |
-| **Phase 5** | **Test & Evidence** | ⏳ Pending | Reconciliation runner (SQL vs. DuckDB reference), Playwright rendered tests, and Evidence Report. |
+| **Phase 4** | **Dashboard Build** | ✅ Implemented | Validated `DashboardSpec`, deterministic Chart Recommender, traceable Dashboard Designer, query-backed Streamlit Screen 7, and Apache Superset REST adapter. Superset publication needs a configured Superset instance. |
+| **Phase 5** | **Test & Evidence** | ⏳ Next | Independent reconciliation runner (SQL vs. DuckDB reference), Playwright rendered tests, traceability coverage, and Evidence Report. |
 | **Phase 6** | **LangGraph Orchestrator** | ⏳ Pending | End-to-end task DAG state machine with checkpoint interrupts at Gates 1, 2, and 3. |
 
 ---
@@ -64,7 +64,15 @@ To run the automated unit and end-to-end integration test suite:
 .\.venv\Scripts\python.exe -m pytest -v
 ```
 
-All 16 unit and integration tests are currently passing 100% green.
+The Phase 0–4 unit and integration suite currently passes 28 tests.
+
+Run the Phase 4 dashboard build and query-backed filter demo:
+
+```powershell
+$env:PYTHONPATH="src"
+$env:PYTHONIOENCODING="utf-8"
+.\.venv\Scripts\python.exe scripts\verify_phase4.py
+```
 
 ---
 
@@ -84,6 +92,6 @@ dashboard-forge/
 │   └── semantic/          # Semantic Layer YAML compiler
 ├── ui/                    # Streamlit web application
 ├── tests/                 # Unit and end-to-end integration tests
-├── scripts/               # Interactive verification scripts (Phases 0, 1, 2, 3)
+├── scripts/               # Interactive verification scripts (Phases 0–4)
 └── UI_INSTRUCTIONS.md     # UI launch and user guide
 ```

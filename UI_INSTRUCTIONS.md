@@ -46,6 +46,14 @@ The browser will automatically open to:
 - View transpiled SQL with **SQLGlot AST Validation Badges** (`AST Parsed`, `Read-Only Safety`, `Dry-Run Warehouse`).
 - View real-time query results executed against DuckDB.
 
+### Screen 7: Dashboard Preview (Phase 4)
+- Gate 1 and Gate 2 must be approved first.
+- Confirm each dimension requirement against an already-approved metric dimension; explicitly map filter requirements to discovered fields.
+- Generate the dashboard spec. The designer blocks unapproved metrics/requirements and SQL artifacts that fail static validation or warehouse dry-run.
+- Review the query-backed widgets and interact with global filters. Widget numbers are executed DuckDB results, not LLM output.
+- Apache Superset publication is a separate operation using `SupersetBIAdapter`; configure a Superset instance and dataset bindings before publishing. The Streamlit preview alone does not mean a dashboard was published.
+- Verify the implementation end-to-end with `.\.venv\Scripts\python.exe scripts\verify_phase4.py` (set `PYTHONPATH=src` and `PYTHONIOENCODING=utf-8` first in PowerShell).
+
 ---
 
 ## 3. Running Automated Tests

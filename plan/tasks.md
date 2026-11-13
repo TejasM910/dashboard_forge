@@ -39,12 +39,12 @@ Format: `T-id [Pri] title — specs — depends`.
 - T-306 Advanced metrics (YoY, rolling, cohort, funnel) — FR-44 — T-304
 
 ## Phase 4 — Dashboard Build
-- T-401 Dashboard Spec schema + validator — FR-50 — T-005
-- T-402 Chart recommender (rules + LLM rationale) — FR-51 — T-401
-- T-403 Dashboard Designer agent — FR-50 — T-402,T-304
-- T-404 Superset adapter (datasets, charts, dashboard, filters) — FR-52 — T-401
-- T-405 Theme/format layer — FR-53 — T-404
-- T-406 Screenshot/preview service — FR-54 — T-404
+- T-401 [x] Dashboard Spec schema + validator (canonical Pydantic contract; 12-column flow layout; reference validation) — FR-50 — T-005
+- T-402 [x] Chart recommender (deterministic rules; optional non-authoritative LLM rationale) — FR-51 — T-401
+- T-403 [x] Dashboard Designer (approved requirements/metrics + schema metadata + confirmed mappings + validated SQL → traceable spec) — FR-50 — T-402,T-304
+- T-404 [x] Apache Superset adapter (dataset bindings, charts, dashboards, filters; publish/update) — FR-52 — T-401
+- T-405 [x] Theme/format layer (safe colors, units, number formats) — FR-53 — T-404
+- T-406 [x] Query-backed Streamlit preview and Superset thumbnail retrieval — FR-54 — T-401,T-403,T-404
 
 ## Phase 5 — Test & Evidence
 - T-501 Test Designer (requirement→tests, edge-case catalog) — FR-60 — T-403

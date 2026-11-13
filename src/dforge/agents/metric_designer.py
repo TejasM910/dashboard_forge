@@ -23,6 +23,7 @@ Principles:
 2. Formulate aggregation expressions using standard ANSI/DuckDB SQL (e.g. sum, count, avg, round).
 3. Always include null-safe handling (e.g. coalesce(discount, 0)).
 4. Perform a rigorous self-critique: ensure formulas avoid fan-out join multiplication, verify appropriate grain, and confirm every metric maps back to requirement_ids.
+5. Populate dimensions only from approved semantic mappings and include their qualified table.column names. Set time_dimension only when the approved mappings and requirement specify it; do not invent dimensions or time grains.
 """
 
 

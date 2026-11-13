@@ -1,16 +1,67 @@
-dashboard: {name: RetailCo Weekly Sales, audience: leadership, refresh: "daily 08:00 IST", timezone: Asia/Kolkata}
-filters:
-  - {id: date_range, type: date, default: last_12_weeks}
-  - {id: region, type: multiselect, rls: region_manager}
+id: retailco-weekly-sales
+title: RetailCo Weekly Sales
+description: Weekly sales overview for leadership.
+project_id: retailco
+global_filters:
+  - id: date_range
+    label: Date range
+    column: order_date
+    type: date_range
+    default_value: last_12_weeks
+  - id: region
+    label: Region
+    column: region
+    type: multi_select
 pages:
-  - name: Overview
-    rows:
-      - widgets:
-          - {id: w1, type: kpi_card, metric: net_revenue, compare: yoy, requirement_ids: [REQ-001]}
-          - {id: w2, type: kpi_card, metric: orders, compare: yoy, requirement_ids: [REQ-002]}
-          - {id: w3, type: kpi_card, metric: aov, compare: yoy, requirement_ids: [REQ-003]}
-          - {id: w4, type: kpi_card, metric: conversion_rate, compare: yoy, requirement_ids: [REQ-004]}
-      - widgets:
-          - {id: w5, type: line, metric: net_revenue, x: week, series: channel, requirement_ids: [REQ-001, REQ-006]}
-          - {id: w6, type: bar_horizontal, metric: net_revenue, dimension: product, top_n: 10, requirement_ids: [REQ-007]}
-          - {id: w7, type: bar_horizontal, metric: net_revenue, dimension: region, top_n: 5, requirement_ids: [REQ-007]}
+  - id: overview
+    title: Overview
+    widgets:
+      - id: w1
+        title: Net Revenue
+        type: kpi_card
+        metric: net_revenue
+        width: 3
+        requirement_ids: [REQ-001]
+      - id: w2
+        title: Orders
+        type: kpi_card
+        metric: orders
+        width: 3
+        requirement_ids: [REQ-002]
+      - id: w3
+        title: Average Order Value
+        type: kpi_card
+        metric: aov
+        width: 3
+        requirement_ids: [REQ-003]
+      - id: w4
+        title: Conversion Rate
+        type: kpi_card
+        metric: conversion_rate
+        width: 3
+        requirement_ids: [REQ-004]
+      - id: w5
+        title: Net Revenue by Week and Channel
+        type: line
+        metric: net_revenue
+        dimensions: [channel]
+        time_grain: week
+        width: 6
+        requirement_ids: [REQ-001, REQ-006]
+      - id: w6
+        title: Net Revenue by Product
+        type: bar
+        metric: net_revenue
+        dimensions: [product]
+        width: 6
+        requirement_ids: [REQ-007]
+      - id: w7
+        title: Net Revenue by Region
+        type: bar
+        metric: net_revenue
+        dimensions: [region]
+        width: 6
+        requirement_ids: [REQ-007]
+theme:
+  timezone: Asia/Kolkata
+version: 1

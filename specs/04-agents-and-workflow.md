@@ -41,3 +41,33 @@ Rules: run when dependencies done → validate output schema → run task-level 
 
 ## Clarification protocol
 Ambiguity categories: metric definition, time period/time zone, filters/exclusions, data source choice, currency/units, granularity, access rules, refresh. Each question includes: why asked, options, recommended default, impact if wrong. Unanswered questions block the gate (or require explicit "accept default").
+
+## Phase 4 — Dashboard Build contract
+
+### Entry conditions
+- Gate 1 requirements are approved and have no unresolved blocking ambiguity.
+- Gate 2 metric definitions are approved.
+- SQL artifacts for the dashboard's metrics have passed the Phase 3 static checks and dry-run.
+- The Phase 2 schema graph and data profiles are available to the designer; the designer does not infer or invent warehouse fields.
+
+### Build flow
+1. Validate the input requirements, approved metrics, generated SQL references, and schema metadata.
+2. Recommend chart types deterministically from the metric's available dimensions, time dimension, and data shape. Any LLM-generated rationale is advisory and cannot override an unsupported chart/data combination.
+3. Design a `DashboardSpec` that references existing metric names and requirement IDs and satisfies the layout and filter constraints in spec 05.
+4. Validate the completed spec before it is rendered or published. Invalid references or layout must be reported as validation errors, not silently dropped or repaired into a success.
+5. Render a local review preview in the existing Streamlit app. For MVP BI publication, pass the same validated spec to the Apache Superset adapter; Streamlit preview is not a substitute for publication.
+
+### Phase 4 deliverables and boundaries
+- **T-401:** Complete and validate the tool-agnostic dashboard/page/widget/filter model, including 12-column row layout rules.
+- **T-402:** Rule-based chart recommender with testable decisions; optional LLM rationale is non-authoritative.
+- **T-403:** Dashboard Designer using approved requirements, approved metrics, Phase 2 schema metadata, analyst-confirmed dimension/filter mappings, and SQL validation results; produces a validated spec with requirement traceability.
+- **T-404:** Apache Superset BI adapter for spec validation, publication, update, and widget data retrieval.
+- **T-405:** Theme and number-format handling that respects metric units and configured display preferences; unsafe format/color strings are rejected.
+- **T-406:** Query-backed Streamlit preview in UI Screen 7 and Superset dashboard-thumbnail retrieval. The Streamlit preview and Superset publication are distinct targets using the same spec.
+
+### Exit criteria
+- Dashboard specs round-trip through the canonical schema and reject invalid metric/requirement references, filter references, and row widths.
+- Supported chart recommendations and unsupported/ambiguous data shapes have deterministic, tested outcomes.
+- Every generated widget links to one or more source requirements and an approved metric; no metric values are authored by an LLM.
+- The same validated spec can be previewed in Streamlit and published/updated through the Superset adapter.
+- Phase 0–3 tests remain passing. Phase 4 does not claim independent correctness evidence or final sign-off; those are Phase 5 responsibilities.
